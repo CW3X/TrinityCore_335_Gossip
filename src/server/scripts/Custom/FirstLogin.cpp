@@ -6,18 +6,26 @@
 #include "ScriptLoader.h"
 #include "ScriptedCreature.h"
 #include "CreatureAI.h"
+#include <iostream>
 
 #define JOIN_QUE              "Join que"
 #define LEAVE_QUE             "Leave que"
 #define CURRENT_STATUS        "Que status"
 #define GET_CLASS             "Get class"
-#define MENU_ID               123
+#define HEALING_GEAR          "Choose Healing gear"
+#define DPS_GEAR              "Choose DPS gear"
+#define TANK_GEAR             "Choose Tanking gear"
+
+#define MENU_ID               2522
 
 enum Options {
-    JOIN_QUE_ACTION = 1,
-    LEAVE_QUE_ACTION = 2,
-    QUE_STATUS_ACTION = 3,
-    GET_CLASS_ACTION = 4
+    HEALING_ACTION = 1,
+    DPS_ACTION = 2,
+    TANK_ACTION = 3,
+    JOIN_QUE_ACTION = 5,
+    LEAVE_QUE_ACTION = 6,
+    QUE_STATUS_ACTION = 7,
+    GET_CLASS_ACTION = 8
 };
 
 /*
@@ -36,47 +44,106 @@ Classes uint8 values:
     CLASS_DRUID = 11 // TITLE Druid
 */
 
-int index = 0;
+/*
+HEALER/TANK/DPS:
+paladin - 2
+druid - 11
+
+HEALER/DPS:
+priest - 5
+shaman - 7
+
+TANK/DPS:
+warrior - 1
+death knight - 6
+
+DPS:
+mage
+rogue
+hunter
+warlock
+*/
 
 class FirstLogin : public PlayerScript {
+private:
+    std::string DB_NAME = "gossip_menu";
+    std::string DB_TABLE = "characters";
 public:
     FirstLogin() : PlayerScript("FirstLogin") {}
 
     void OnLogin(Player* player, bool firstLogin) override {
-        auto result = CharacterDatabase.PQuery("SELECT gossip_menu FROM characters WHERE guid=49");
+        //auto result = CharacterDatabase.PQuery("SELECT column FROM table WHERE guid=%u", player->GetGUID().GetCounter());
+        //auto result = CharacterDatabase.PQuery("SELECT %s FROM %t WHERE guid=%p", "gossip_menu", "characters", player->GetGUID().GetCounter());
+        //auto result = CharacterDatabase.PQuery("SELECT %s FROM characters WHERE guid=%u", "gossip_menu", player->GetGUID().GetCounter());
+        std::cout << "SELECT %s FROM characters WHERE guid=%u", "gossip_menu", std::to_string(player->GetGUID().GetCounter());
+        auto result = CharacterDatabase.PQuery("SELECT " +DB_NAME +" FROM " +DB_TABLE +" WHERE guid=" +std::to_string(player->GetGUID().GetCounter()));
         bool value;
         if(result) {
             value = result->Fetch()[0].GetUInt8();
         }
+        player->Say(std::to_string(value), LANG_UNIVERSAL);   
 
         if(value) {
-            player->Say("inside", LANG_UNIVERSAL);
-            if(player->GetClass() == 9) {
-                player->Say("Not sending gossip", LANG_UNIVERSAL);
-            } else {
-                SendGossipMenu(player);
+            uint8 playerClass = player->GetClass();
+
+            if(playerClass == 2 || playerClass == 11) {
+                SendGossipMenuDHT(player);
+                SetGossipMenuFalse(player);
+            } else if(playerClass == 5 || playerClass == 7) {
+                SendGossipMenuHD(player);
+                SetGossipMenuFalse(player);
+            } else if(playerClass == 1 || playerClass == 6) {
+                SendGossipMenuTD(player);
+                SetGossipMenuFalse(player);
             }
         }
     }
 
-    void SendGossipMenu(Player* player) {
+    void SendGossipMenuDHT(Player* player) {
         player->PlayerTalkClass->GetGossipMenu().SetMenuId(MENU_ID);
+        ClearGossipMenuFor(player);
 
-        // Join que gossip
-        AddGossipItemFor(player, GOSSIP_ICON_CHAT, JOIN_QUE, GOSSIP_SENDER_MAIN, JOIN_QUE_ACTION);
-        SendGossipMenuFor(player, JOIN_QUE_ACTION, player->GetGUID());
+        // DPS gear
+        AddGossipItemFor(player, GOSSIP_ICON_CHAT, DPS_GEAR, GOSSIP_SENDER_MAIN, DPS_ACTION);
+        SendGossipMenuFor(player, DPS_ACTION, player->GetGUID());
 
-        // Leave que gossip
-        AddGossipItemFor(player, GOSSIP_ICON_CHAT, LEAVE_QUE, GOSSIP_SENDER_MAIN, LEAVE_QUE_ACTION);
-        SendGossipMenuFor(player, LEAVE_QUE_ACTION, player->GetGUID());
+        // Healing gear
+        AddGossipItemFor(player, GOSSIP_ICON_CHAT, HEALING_GEAR, GOSSIP_SENDER_MAIN, HEALING_ACTION);
+        SendGossipMenuFor(player, HEALING_ACTION, player->GetGUID());
 
-        // Get current status
-        AddGossipItemFor(player, GOSSIP_ICON_CHAT, CURRENT_STATUS, GOSSIP_SENDER_MAIN, QUE_STATUS_ACTION);
-        SendGossipMenuFor(player, QUE_STATUS_ACTION, player->GetGUID());
+        // Tank gear
+        AddGossipItemFor(player, GOSSIP_ICON_CHAT, TANK_GEAR, GOSSIP_SENDER_MAIN, TANK_ACTION);
+        SendGossipMenuFor(player, TANK_ACTION, player->GetGUID());
+    }
 
-        // Get class
-        AddGossipItemFor(player, GOSSIP_ICON_CHAT, GET_CLASS, GOSSIP_SENDER_MAIN, GET_CLASS_ACTION);
-        SendGossipMenuFor(player, GET_CLASS_ACTION, player->GetGUID());
+    void SendGossipMenuHD(Player* player) {
+        player->PlayerTalkClass->GetGossipMenu().SetMenuId(MENU_ID);
+        ClearGossipMenuFor(player);
+
+        // DPS gear
+        AddGossipItemFor(player, GOSSIP_ICON_CHAT, DPS_GEAR, GOSSIP_SENDER_MAIN, DPS_ACTION);
+        SendGossipMenuFor(player, DPS_ACTION, player->GetGUID());
+
+        // Healing gear
+        AddGossipItemFor(player, GOSSIP_ICON_CHAT, HEALING_GEAR, GOSSIP_SENDER_MAIN, HEALING_ACTION);
+        SendGossipMenuFor(player, HEALING_ACTION, player->GetGUID());
+    }
+
+    void SendGossipMenuTD(Player* player) {
+        player->PlayerTalkClass->GetGossipMenu().SetMenuId(MENU_ID);
+        ClearGossipMenuFor(player);
+        // DPS gear
+        AddGossipItemFor(player, GOSSIP_ICON_CHAT, DPS_GEAR, GOSSIP_SENDER_MAIN, DPS_ACTION);
+        SendGossipMenuFor(player, DPS_ACTION, player->GetGUID());
+
+        // Tank gear
+        AddGossipItemFor(player, GOSSIP_ICON_CHAT, TANK_GEAR, GOSSIP_SENDER_MAIN, TANK_ACTION);
+        SendGossipMenuFor(player, TANK_ACTION, player->GetGUID());
+    }
+
+    void SetGossipMenuFalse(Player* player) {
+        CharacterDatabase.PQuery("UPDATE " +DB_TABLE +" SET " +DB_NAME +"=0 WHERE guid = " +std::to_string(player->GetGUID()));
+        
     }
 
     void OnGossipSelect(Player* player, uint32 menu_id, uint32 /*sender*/, uint32 action) override {
@@ -86,36 +153,16 @@ public:
 
         ClearGossipMenuFor(player);
         switch(action) {
-        case JOIN_QUE_ACTION:
-            index++;
-            player->Say(JOIN_QUE, LANG_UNIVERSAL);
+        case DPS_ACTION:
             ClearGossipMenuFor(player);
             CloseGossipMenuFor(player);
-            if(index < 10) {
-                SendGossipMenu(player);
-            }
+
             break;
-        case LEAVE_QUE_ACTION:
-            index++;
-            player->Say(LEAVE_QUE, LANG_UNIVERSAL);
+        case HEALING_ACTION:
             ClearGossipMenuFor(player);
             CloseGossipMenuFor(player);
-            if(index < 10) {
-                SendGossipMenu(player);
-            }
             break;
-        case QUE_STATUS_ACTION:
-            index++;
-            player->Say(CURRENT_STATUS, LANG_UNIVERSAL);
-            player->Say(std::to_string(index), LANG_UNIVERSAL);
-            ClearGossipMenuFor(player);
-            CloseGossipMenuFor(player);
-            if(index < 10) {
-                SendGossipMenu(player);
-            }
-            break;
-        case GET_CLASS_ACTION:
-            player->Say(std::to_string(player->GetClass()), LANG_UNIVERSAL);
+        case TANK_ACTION:
             ClearGossipMenuFor(player);
             CloseGossipMenuFor(player);
             break;
